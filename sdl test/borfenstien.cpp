@@ -1,10 +1,6 @@
-// sdltest.cpp : Defines the entry point for the console application.
-//
-
 #include "stdafx.h"
 #include <math.h>
 #include <Eigen/Dense>
-//#include <Eigen/Geometry>
 #include <iostream>
 #include <string>
 #include <SDL.h>
@@ -14,9 +10,6 @@ using namespace Eigen;
 //constant declarations
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
-
-//errorcode variable
-int errorCode = 0;
 
 //sdl variables
 SDL_Window* window = NULL;
@@ -35,6 +28,16 @@ struct player {
 //functions
 
 //mathy functions
+double norm2d(Vector2d inputVector) {
+	return sqrt(inputVector.sum());
+}
+
+double calcDistance(Vector2d point1, Vector2d point2) {
+	return sqrt(
+		pow(point1(0) - point2(0), 2) +
+		pow(point1(1) - point2(1), 2));
+}
+
 Vector2d rotate(Vector2d inputVector, double angle) {
 	MatrixXd stdMatrix(2, 2);
 	stdMatrix(0, 0) = cos(angle);
@@ -77,7 +80,6 @@ Vector2d intersection(Vector2d v1, Vector2d v2, Vector2d v3, Vector2d v4) {//v1 
 		  m[6].determinant(), m[7].determinant();
 
 	double x = M1.determinant() / M2.determinant();//x coordinate value return
-
 
 	//y intercept value calculation
 	m[1] << v1(1), 1,
@@ -218,21 +220,6 @@ int main(int argc, char* argv[]) {
 	//main loop
 	while (!quitLoop) {
 
-		/*
-		int elapsed = SDL_GetTicks();
-		double red = (1 + sin(elapsed * 0.001)) * 128;
-		double green = (1 + sin(elapsed * 0.002)) * 128;
-		double blue = (1 + sin(elapsed * 0.003)) * 128;
-
-		for (int y = 0; y < SCREEN_HEIGHT; y++) {
-			for (int x = 0; x < SCREEN_WIDTH; x++) {
-				setPixel(x, y, (Uint8)floor(red), (Uint8)floor(green), (Uint8)floor(blue));
-			}
-		}*/
-
-		//updates the screen
-		//update(buffer);
-
 		const Uint8 *state = SDL_GetKeyboardState(NULL);
 		if (state[SDL_SCANCODE_W]) {
 			//printf("<W> is pressed.\n");
@@ -245,22 +232,67 @@ int main(int argc, char* argv[]) {
 		
 		if (state[SDL_SCANCODE_A]) {
 			//printf("<A> is pressed.\n");
-			player1.direction = rotate(player1.direction, M_PI/24.0);
+			player1.direction = rotate(player1.direction, M_PI/48.0);
 		}
 		if (state[SDL_SCANCODE_D]) {
 			//printf("<D> is pressed.\n");
-			player1.direction = rotate(player1.direction, M_PI / -24.0);
+			player1.direction = rotate(player1.direction, M_PI / -48.0);
 		}
 
 		//drawing direction vector
 		drawLine(0xFF, 0xFF, 0xFF, { player1.position(0), player1.position(1) }, { player1.position(0) + player1.direction(0) * 50, player1.position(1) + player1.direction(1) *50});
+		//drawing viewportal vectors
+		drawLine(0xFF, 0xAA, 0, player1.position, rotate(player1.direction, M_PI/4)*200 + player1.position);
+		drawLine(0xFF, 0xAA, 0, player1.position, rotate(player1.direction, M_PI / -4) * 200 + player1.position);
 
 		drawLine(0xFF, 0, 0, { 400, 300 }, { 800, 600 });
 		drawLine(0xFF, 0, 0xFF, { 400, 300 }, { 800, 0 });
 		drawLine(0, 0, 0xFF, { 400, 300 }, { 0, 600 });
 		drawLine(0xFF, 0xFF, 0, { 400, 300 }, { 0, 0 });
 
-		drawLine(0xFF, 0xFF, 0, { 700, 200 }, { 700, 400 });
+		Vector2d v1 = { 700, 200 };
+		Vector2d v2 = { 700, 400 };
+		drawLine(0xFF, 0xFF, 0, v1, v2);//the line to be transformed
+
+		Vector2d centreCoords = { SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 };
+		Vector2d tv1 = v1 - player1.position;
+		Vector2d tv2 = v2 - player1.position;
+
+		//rotating the world around the player
+		double angle = atan2(player1.direction(1), player1.direction(0));
+		tv1 = rotate(tv1, angle + M_PI/2) + centreCoords;
+		tv2 = rotate(tv2, angle + M_PI/2) + centreCoords;
+
+		//drawLine(0, 0, 0xFF, tv1, tv2);//the transformed line
+		drawLine(0, 0, 0xFF, {SCREEN_WIDTH/2, SCREEN_HEIGHT/2}, { SCREEN_WIDTH / 2 , SCREEN_HEIGHT / 2  - 50});//the first person camera look
+		
+		//drawing the centre rect
+		SDL_Rect centreRect = { SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2 - 5, 10, 10 };
+
+		//creating the 3d view
+		double interceptDistance = calcDistance(player1.position, intersection(player1.position, player1.position + player1.direction, v1, v2));
+		double distanceToPlayer1 = calcDistance(player1.position, tv1);
+		double distanceToPlayer2 = calcDistance(player1.position, tv2);
+
+		Vector2d point1 = {tv1(0), tv1(1)};
+		Vector2d point2 = { tv2(0), tv2(1)};
+		cout << "intercept distance is " << interceptDistance << endl;
+		cout << "player position is" << player1.position << endl;
+
+
+		drawLine(0xFF, 0, 0xFF,
+							{point1(0), point1(1)},
+							{point2(0), point2(1)});//the bottom line
+		drawLine(0, 0, 0xFF,
+							{point1(0), point1(1) - 600/distanceToPlayer1 },
+							{point2(0), point2(1) - 600/distanceToPlayer2 });//the top line	
+		
+		//drawLine(0, 0, 0xFF, tv1, { point1(0), point1(1)});//the left line
+		//drawLine(0, 0, 0xFF, tv2, { point2(0), point2(1)});//the right line
+		
+
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0xFF, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(renderer, &centreRect);
 
 		SDL_Rect playerRect;
 		playerRect.x = player1.position(0) - 5;
@@ -268,9 +300,11 @@ int main(int argc, char* argv[]) {
 		playerRect.w = 10;
 		playerRect.h = 10;
 
-		SDL_RenderDrawRect(renderer, &playerRect);
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(renderer, &playerRect);//drawing the player rectangle
 
-		Vector2d interceptVector = intersection(player1.position, player1.position + player1.direction  *50, { 700, 200 }, {700, 400});
+		Vector2d interceptVector = intersection(player1.position, player1.position + player1.direction, v1, v2);
+		cout << "intercept vector is " << interceptVector << endl;
 
 		SDL_Rect interceptionRect;
 		interceptionRect.x = (int)interceptVector(0) - 5;
