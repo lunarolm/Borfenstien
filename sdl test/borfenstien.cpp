@@ -17,11 +17,11 @@ const int map[MAP_WIDTH][MAP_HEIGHT] = {
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -52,17 +52,19 @@ struct player {
 	Vector2d position;
 	Vector2d direction;
 	Vector2d cameraPlane;
+	double speed;
+
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 }player1;
 
 //functions
 
 //mathy functions
-Vector2d rotate(Vector2d inputVector, double angle) {
-	MatrixXd stdMatrix(2, 2);
-	stdMatrix(0, 0) = cos(angle);
-	stdMatrix(0, 1) = sin(angle);
-	stdMatrix(1, 0) = -sin(angle);
-	stdMatrix(1, 1) = cos(angle);
+Vector2d rotate(Vector2d &inputVector, double angle) {
+	Matrix2d stdMatrix;
+
+	stdMatrix << cos(angle), -sin(angle),
+				 sin(angle), cos(angle);
 
 	return stdMatrix * inputVector;
 }
@@ -75,29 +77,29 @@ Vector2d intersection(Vector2d v1, Vector2d v2, Vector2d v3, Vector2d v4) {
 	Matrix2d m[8];
 	//x intercept value calculation
 	m[0] << v1(0), v1(1),
-		v2(0), v2(1);
+		    v2(0), v2(1);
 	m[1] << v1(0), 1,
-		v2(0), 1;
+		    v2(0), 1;
 	m[2] << v3(0), v3(1),
-		v4(0), v4(1);
+		    v4(0), v4(1);
 	m[3] << v3(0), 1,
-		v4(0), 1;
+		    v4(0), 1;
 	m[4] << v1(0), 1,
-		v2(0), 1;
+		    v2(0), 1;
 	m[5] << v1(1), 1,
-		v2(1), 1;
+		    v2(1), 1;
 	m[6] << v3(0), 1,
-		v4(0), 1;
+		    v4(0), 1;
 	m[7] << v3(1), 1,
-		v4(1), 1;
+		    v4(1), 1;
 
 	Matrix2d M1;
 	M1 << m[0].determinant(), m[1].determinant(),
-		m[2].determinant(), m[3].determinant();
+		  m[2].determinant(), m[3].determinant();
 
 	Matrix2d M2;
 	M2 << m[4].determinant(), m[5].determinant(),
-		m[6].determinant(), m[7].determinant();
+		  m[6].determinant(), m[7].determinant();
 
 	double x = M1.determinant() / M2.determinant();//x coordinate value return
 
@@ -145,7 +147,7 @@ bool initTexture() {
 	bool success = true;
 
 	//initialize the renderer
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
 	if (renderer == NULL) {
 		cout << "RENDERER FAILED TO INITIALIZE: " << SDL_GetError() << endl;
@@ -231,25 +233,24 @@ void showMap(player player1) {
 							(player1.position + player1.direction*50));
 
 	drawLine(0xFF, 0, 0xFF,//drawing camera vector, not to scale
-		(player1.position + player1.direction * 50),
-		((player1.position + player1.direction * 50 + player1.cameraPlane * 50)));
+							(player1.position + player1.direction * 50),
+							((player1.position + player1.direction * 50 + player1.cameraPlane * 50)));
 
 	drawLine(0xFF, 0, 0xFF,//drawing camera vector, not to scale
-		(player1.position + player1.direction * 50),
-		((player1.position + player1.direction * 50 - player1.cameraPlane * 50)));
+							(player1.position + player1.direction * 50),
+							((player1.position + player1.direction * 50 - player1.cameraPlane * 50)));
 
 	drawLine(0xFF, 0xAA, 0,//drawing view angle, not to scale
-		player1.position,
-		((player1.position + player1.direction * 200 - player1.cameraPlane * 200)));
+							player1.position,
+							((player1.position + player1.direction * 200 - player1.cameraPlane * 200)));
 
 	drawLine(0xFF, 0xAA, 0,//drawing view angle, not to scale
-		player1.position,
-		((player1.position + player1.direction * 200 + player1.cameraPlane * 200)));
+							player1.position,
+							((player1.position + player1.direction * 200 + player1.cameraPlane * 200)));
 		
 
 
 }
-
 /******************************************************************************MAIN*********************************************************************************/
 /*******************************************************************************************************************************************************************/
 int main(int argc, char* argv[]) {
@@ -268,6 +269,7 @@ int main(int argc, char* argv[]) {
 	player1.position = { 22, 12 };
 	player1.direction = { -1 , 0 };
 	player1.cameraPlane = {0, 0.66};
+	player1.speed = 0.5;
 
 	bool quitLoop = false;
 	bool mapVisible = false;
@@ -275,6 +277,8 @@ int main(int argc, char* argv[]) {
 
 	//main loop
 	while (!quitLoop) {
+
+		int startFrameTime = SDL_GetTicks();
 
 		//raycasting loop
 		for (int i = 0; i < SCREEN_WIDTH; i++) {
@@ -371,22 +375,59 @@ int main(int argc, char* argv[]) {
 		//controls
 		const Uint8 *state = SDL_GetKeyboardState(NULL);
 		if (state[SDL_SCANCODE_W]) {
-			player1.position += player1.direction;
+			if (map[int(player1.position(0) + player1.direction(0))]
+				   [int(player1.position(1) + player1.direction(1))] == 0) {
+				player1.position += player1.direction;
+			}
+			else {
+				cout << "Path blocked!" << endl << player1.position << endl;
+			}
 		}
 		if (state[SDL_SCANCODE_S]) {
-			player1.position -= player1.direction;
+			if (map[int(player1.position(0) - player1.direction(0))]
+				   [int(player1.position(1) - player1.direction(1))] == 0) {
+				player1.position -= player1.direction;
+			}
+			else {
+				cout << "Path blocked!" << endl << player1.position << endl;
+			}
 		}
+		
+		if (state[SDL_SCANCODE_E]) {
+			cout << "e pressed" << endl;
+			Vector2d sidewaysDir = {player1.direction(0), player1.direction(1)};
+			sidewaysDir = rotate(sidewaysDir, M_PI/2);
 
-		if (state[SDL_SCANCODE_A]) {
-			player1.direction = rotate(player1.direction, M_PI / -48.0);
-			player1.cameraPlane = rotate(player1.cameraPlane, M_PI / -48.0);
+			if (map[(int)(player1.position(0) - sidewaysDir(0))]
+				   [(int)(player1.position(1) - sidewaysDir(1))] == 0) {
+				player1.position -= sidewaysDir;
+			}
+			else {
+				cout << "Path blocked!" << endl << player1.position << endl;
+			}
 		}
-		if (state[SDL_SCANCODE_D]) {
+		
+		if (state[SDL_SCANCODE_Q]) {
+			Vector2d sidewaysDir = { player1.direction(0),player1.direction(1) };
+			sidewaysDir =  rotate(sidewaysDir, M_PI/2);
+
+			if (map[(int)(player1.position(0) + sidewaysDir(0))]
+				   [(int)(player1.position(1) + sidewaysDir(1))] == 0) {
+				player1.position += sidewaysDir;
+			}
+			else {
+				cout << "Path blocked!" << endl << player1.position << endl;
+			}
+		}
+		if (state[SDL_SCANCODE_A]) {
 			player1.direction = rotate(player1.direction, M_PI / 48.0);
 			player1.cameraPlane = rotate(player1.cameraPlane, M_PI / 48.0);
 		}
+		if (state[SDL_SCANCODE_D]) {
+			player1.direction = rotate(player1.direction, M_PI / -48.0);
+			player1.cameraPlane = rotate(player1.cameraPlane, M_PI / -48.0);
+		}
 		
-		cout << player1.position << endl;
 
 		while (SDL_PollEvent(&event)) {	//checks to see if the event queue has any more events, stops if it doesn't
 										//also, it changes the event variable to be the next event in the queue
@@ -403,6 +444,16 @@ int main(int argc, char* argv[]) {
 				}
 			}*/
 		}
+
+		int endFrameTime = SDL_GetTicks();
+		int deltaFrameTime = endFrameTime - startFrameTime;
+		double frameRate = 1 / (deltaFrameTime / 1000.0);
+
+		if (frameRate > 30) {
+			SDL_Delay(frameRate - 30);
+			frameRate -= (frameRate - 30);
+		}
+
 	}
 
 	quit();
